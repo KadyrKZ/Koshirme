@@ -53,6 +53,8 @@ export interface Exam {
   finished_at: string | null;
 }
 export interface Student {
+  finished_at?: string | null;
+  finish_reason?: string | null;
   id: string;
   exam_id: string;
   student_name: string;

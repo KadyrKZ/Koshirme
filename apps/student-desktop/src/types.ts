@@ -11,6 +11,7 @@ export interface DesktopState {
   monitoring: boolean;
   consented: boolean;
   error: string | null;
+  applicationError?: string | null;
 }
 export interface JoinInput {
   studentName: string;
@@ -18,9 +19,6 @@ export interface JoinInput {
 }
 export interface GuardAPI {
   getState(): Promise<DesktopState>;
-  join(input: JoinInput): Promise<void>;
-  start(): Promise<void>;
   screenPermission(): Promise<void>;
-  copyPairingCode(): Promise<void>;
   onState(callback: (state: DesktopState) => void): () => void;
 }

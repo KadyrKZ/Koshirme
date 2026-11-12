@@ -34,6 +34,8 @@ export interface ExamRow {
   paused: number;
 }
 export interface StudentRow {
+  finished_at?: string | null;
+  finish_reason?: string | null;
   fizmat_user_id?: string | null;
   fizmat_session_hash?: string | null;
   id: string;

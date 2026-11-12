@@ -3,7 +3,7 @@
   "name": "KOSH!RME · Көшірме (Koshirme / Коширме)",
   "short_name": "Көшірме",
   "description": "Көшірме / KOSH!RME — бақылау жүйесі: контест кезінде рұқсат етілген беттер, мұғаліммен байланыс және бұзушылық туралы хабарлау.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",
@@ -11,9 +11,6 @@
     "alarms",
     "declarativeNetRequest",
     "scripting"
-  ],
-  "optional_permissions": [
-    "clipboardRead"
   ],
   "host_permissions": [
     "https://koshirme.stream/*",

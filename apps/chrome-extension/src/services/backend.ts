@@ -28,7 +28,7 @@ export class BackendConnection {
       !this.closed && this.connected && Date.now() - this.receivedAt < this.leaseSeconds * 1000
     );
   }
-  withinOfflineGrace(graceMs = 120_000) {
+  withinOfflineGrace(graceMs = 12_000) {
     return !this.closed && this.receivedAt > 0 && Date.now() - this.receivedAt < graceMs;
   }
   private connect() {

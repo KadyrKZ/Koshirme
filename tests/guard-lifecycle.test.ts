@@ -13,6 +13,7 @@ test('guard releases a finished or revoked session and does not reopen tabs on d
     warnings = 0,
     uploads = 0,
     externalOpens = 0;
+  let backendCloses = 0;
   let open = async () => {};
   let capture = async () => Buffer.from([255, 216, 255, 217]);
   const initial = {
@@ -91,7 +92,9 @@ test('guard releases a finished or revoked session and does not reopen tabs on d
           uploads++;
           return {};
         }
-        close() {}
+        close() {
+          backendCloses++;
+        }
       },
     },
   });
@@ -112,6 +115,25 @@ test('guard releases a finished or revoked session and does not reopen tabs on d
     return guard;
   };
   try {
+    await t.test(
+      'a linked contest ends locally on extension loss instead of reopening Chrome',
+      async () => {
+        const guard = await makeGuard();
+        try {
+          (guard as any).config.fizmat = { contest_id: 'contest', user_id: 'pupil' };
+          const before = backendCloses;
+          connected = false;
+          onConnection(false);
+          assert.equal(guard.state.consented, false);
+          assert.equal(guard.state.monitoring, false);
+          assert.equal(backendCloses, before + 1);
+          assert.equal(externalOpens, 0);
+          assert.match(guard.state.error!, /завершается/);
+        } finally {
+          guard.close();
+        }
+      },
+    );
     await t.test('repeated extension disconnects do not spawn browser tabs', async () => {
       const guard = await makeGuard();
       try {

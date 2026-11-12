@@ -66,6 +66,7 @@ function eligible() {
     config?.monitoring_allowed &&
     config.exam.active &&
     !config.exam.finished_at &&
+    !config.session.finished_at &&
     config.session.active &&
     (backend?.hasLease() || backend?.withinOfflineGrace())
   );
@@ -473,7 +474,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       permission: matches ? desktop?.status.permission : null,
       ready: matches && !!config?.session.ready && !!config.monitoring_allowed,
       active: matches && !!config?.exam.active && !!config?.session.active,
-      finished: matches && !!config?.exam.finished_at,
+      finished: matches && !!(config?.exam.finished_at || config?.session.finished_at),
       otherActive: !matches && eligible(),
     });
     return;
@@ -539,24 +540,6 @@ chrome.runtime.onMessage.addListener(
       respond(status());
       return;
     }
-    if (message.type === 'pair' && message.secret && /^[A-Z0-9]{8}$/.test(message.secret)) {
-      const port = message.port ?? 17891;
-      if (!Number.isInteger(port) || port < 1024 || port > 65535) {
-        respond({ ok: false });
-        return;
-      }
-      const settings = { secret: message.secret, port };
-      void chrome.storage.local.set({ pairing: settings });
-      connectDesktop(settings);
-      respond({ ok: true });
-      return;
-    }
-    if (message.type === 'reconnect' && pairSettings) {
-      backend?.close();
-      backend = null;
-      connectDesktop(pairSettings);
-      respond({ ok: true });
-    }
   },
 );
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -578,9 +561,7 @@ void (async () => {
   const cached = await chrome.storage.session.get('config');
   if (cached.config) setConfig(cached.config as SessionConfig);
   const website = await chrome.storage.session.get('websitePairing');
-  const saved = await chrome.storage.local.get('pairing');
   if (website.websitePairing) connectDesktop(website.websitePairing as PairSettings);
-  else if (saved.pairing) connectDesktop(saved.pairing as PairSettings);
   await chrome.alarms.create('reconnect', { periodInMinutes: 0.5 });
   await chrome.alarms.create('flush-events', { periodInMinutes: 0.5 });
   await pendingReady;

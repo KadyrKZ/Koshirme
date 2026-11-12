@@ -1,6 +1,6 @@
 {
   "name": "@koshirme/student-desktop",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "KOSH!RME student exam guard",
   "author": "KOSH!RME",
   "private": true,
@@ -8,7 +8,7 @@
   "scripts": {
     "predev": "install-electron",
     "dev": "node scripts/run-electron-vite.mjs dev",
-    "build": "npm run typecheck && electron-vite build",
+    "build": "npm run typecheck && node scripts/build-native-macos.mjs && electron-vite build",
     "typecheck": "tsc --noEmit",
     "prepreview": "install-electron",
     "preview": "node scripts/run-electron-vite.mjs preview",

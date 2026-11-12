@@ -60,6 +60,7 @@ test('website tickets bind identity, expire, redeem once and require both live c
       CREATE TABLE sessions(user_id TEXT,token_hash TEXT,expires_at TEXT);
       CREATE TABLE contests(id TEXT,deleted_at TEXT,status TEXT,monitoring_enabled INTEGER,koshirme_exam_id TEXT,access_mode TEXT);
       CREATE TABLE contest_students(contest_id TEXT,user_id TEXT);
+      CREATE TABLE contest_finishes(contest_id TEXT,user_id TEXT,finished_at TEXT);
       INSERT INTO users VALUES('u1','Same name','student',1,NULL),('u2','Same name','student',1,NULL);
       INSERT INTO sessions VALUES('u1','login1','2099-01-01'),('u2','login2','2099-01-01');
       INSERT INTO contests VALUES('contest',NULL,'published',1,'exam','closed');
@@ -141,6 +142,13 @@ test('website tickets bind identity, expire, redeem once and require both live c
     assert.equal(resumed.token, joined.token);
     assert.equal(resumed.session.ready, true);
     assert.equal(resumed.session.active, true);
+    const replacement = (await (await call('/api/fizmat/student-connect', identity)).json()) as any;
+    assert.equal((await call('/api/student/connect', { ticket: replacement.ticket })).status, 409);
+    assert.equal(
+      k.db.prepare("SELECT ready FROM student_sessions WHERE fizmat_user_id='u1'").get()!.ready,
+      1,
+    );
+
     f.db.exec("INSERT INTO contest_students VALUES('contest','u2')");
     const other = (await (
       await call('/api/fizmat/student-connect', {

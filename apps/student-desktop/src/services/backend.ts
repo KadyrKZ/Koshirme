@@ -57,7 +57,7 @@ export class BackendClient {
       !this.stopped && this.connected && Date.now() - this.receivedAt < this.leaseSeconds * 1000
     );
   }
-  withinOfflineGrace(graceMs = 120_000) {
+  withinOfflineGrace(graceMs = 12_000) {
     return !this.stopped && this.receivedAt > 0 && Date.now() - this.receivedAt < graceMs;
   }
   private connect() {

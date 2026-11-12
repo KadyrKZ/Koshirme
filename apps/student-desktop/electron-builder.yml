@@ -13,6 +13,11 @@ protocols:
 toolsets:
   nsis: '1.2.1'
 mac:
+  extraResources:
+    - from: native/bin/koshirme-app-guard
+      to: koshirme-app-guard
+  binaries:
+    - Contents/Resources/koshirme-app-guard
   category: public.app-category.education
   identity: Developer ID Application
   type: distribution

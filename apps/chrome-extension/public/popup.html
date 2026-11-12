@@ -20,7 +20,7 @@
     <main>
       <p id="exam-label" class="label">ЭКЗАМЕН</p>
       <h2 id="exam">Экзамен не подключён</h2>
-      <p id="allowed">Откройте приложение KOSH!RME и войдите в комнату.</p>
+      <p id="allowed">Откройте свой контест на fizmat.win. Подключение автоматическое.</p>
       <dl>
         <div>
           <dt id="desktop-label">Приложение</dt>
@@ -32,27 +32,7 @@
         </div>
       </dl>
       <p id="error" role="alert"></p>
-      <details id="pairing" open>
-        <summary id="pair-summary">Подключить приложение</summary>
-        <form id="pair-form">
-          <label id="secret-label" for="secret">Код из приложения</label
-          ><input
-            id="secret"
-            maxlength="8"
-            pattern="[A-Za-z0-9]{8}"
-            required
-            autocomplete="off"
-            placeholder="Введите код из приложения"
-          /><button id="auto-pair-button" type="button">Вставить код и подключить</button
-          ><button id="connect-button" type="submit" class="secondary-action">
-            Подключить вручную
-          </button>
-          <p id="pair-help">
-            Если автоподключение недоступно, введите 8-значный код из приложения.
-          </p>
-        </form>
-      </details>
-      <button id="reconnect" class="secondary">Переподключить</button>
+
     </main>
     <footer class="help-links">
       <a id="guide-link" href="https://koshirme.stream/guide.html" target="_blank" rel="noopener"

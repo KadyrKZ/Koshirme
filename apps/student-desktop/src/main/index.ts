@@ -1,11 +1,11 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, screen, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session } from 'electron';
 import { join } from 'node:path';
 import { connectionTicket } from '../services/deep-link';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Guard } from '../services/guard';
+import { MacApplicationControl, nativeApplicationDriver } from '../services/application-control';
 import { ChromeBrowser } from '../services/chrome-browser';
 import { requestScreenPermission } from '../services/screen-capture';
-import type { JoinInput } from '../types';
 
 let guard: Guard | null = null;
 let pendingTicket: string | null = null;
@@ -142,35 +142,62 @@ else {
         if (quitting) return;
         if (window && !window.isDestroyed()) {
           window.webContents.send('guard:state', state);
-          if (state.monitoring && window.isVisible()) window.hide();
+          if (state.monitoring && !state.applicationError && window.isVisible()) window.hide();
+          if (state.applicationError) window.show();
           if (wasMonitoring && !state.monitoring) {
             hideViolations();
             window.show();
           }
         }
         wasMonitoring = state.monitoring;
-        if (state.exam?.finished_at) setImmediate(() => app.quit());
+        if (state.exam?.finished_at || state.session?.finished_at) setImmediate(() => app.quit());
       },
       showViolation,
       (url) => chromeBrowser.open(url),
       pairingCode || undefined,
       hideViolations,
       () => chromeBrowser.activate(),
+      process.platform === 'darwin'
+        ? new MacApplicationControl(
+            nativeApplicationDriver(
+              app.isPackaged
+                ? join(process.resourcesPath, 'koshirme-app-guard')
+                : join(app.getAppPath(), 'native/bin/koshirme-app-guard'),
+            ),
+            async (apps) => {
+              const result = await dialog.showMessageBox(window!, {
+                type: 'warning',
+                title: 'Подготовка к контесту',
+                message: 'Сохраните работу. Коширме закроет остальные приложения.',
+                detail:
+                  'Chrome, Коширме и системные службы останутся открытыми. Во время контеста повторно открытые приложения также будут закрываться. Если закрыть Коширме или отключить расширение, попытка завершится.\n\n' +
+                  (apps.length
+                    ? 'Будут закрыты: ' + apps.map((a) => a.name).join(', ')
+                    : 'Других открытых приложений сейчас нет.'),
+                buttons: ['Отмена', 'Работа сохранена — закрыть приложения'],
+                defaultId: 0,
+                cancelId: 0,
+              });
+              return result.response === 1;
+            },
+            (error) => guard?.applicationStatus(error),
+          )
+        : undefined,
     );
     window.on('close', (event) => {
-      if (!quitting && (guard?.state.monitoring || guard?.state.starting)) {
+      if (!quitting) {
         event.preventDefault();
-        window?.minimize();
+        app.quit();
       }
     });
     if (!pairingCode) writeFileSync(pairingPath, guard.state.pairingCode);
     window.on('focus', () => {
-      if (guard?.state.monitoring) {
+      if (guard?.state.monitoring && !guard.state.applicationError) {
         void guard
           .openContest()
           .catch(() => {})
           .finally(() => {
-            if (guard?.state.monitoring) window?.hide();
+            if (guard?.state.monitoring && !guard.state.applicationError) window?.hide();
           });
       }
     });
@@ -185,14 +212,7 @@ else {
       });
     }
     handle('guard:get-state', () => guard!.state);
-    handle('guard:join', async (input) => {
-      if (!input || typeof input !== 'object') throw new Error('Invalid input');
-      await guard!.join(input as JoinInput);
-      // Manual room entry remains available; never overwrite the clipboard on join.
-    });
-    handle('guard:start', () => guard!.start());
     handle('guard:screen-permission', () => requestScreenPermission());
-    handle('guard:copy-pairing-code', () => clipboard.writeText(guard!.state.pairingCode));
     window.once('ready-to-show', () => {
       window?.show();
       if (guard?.state.permission !== 'granted') void requestScreenPermission();
@@ -213,11 +233,6 @@ else {
   // Closing the visible window exits the guard. It never keeps monitoring in a hidden tray.
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', (event) => {
-    if (guard?.state.monitoring || guard?.state.starting) {
-      event.preventDefault();
-      window?.hide();
-      return;
-    }
     quitting = true;
     guard?.close();
     for (const item of violationWindows) if (!item.isDestroyed()) item.destroy();

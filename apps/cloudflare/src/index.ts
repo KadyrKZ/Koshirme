@@ -432,7 +432,8 @@ async function rooms(request: Request, env: Env, path: string): Promise<Response
       const existing = await env.DB.prepare('SELECT * FROM exams WHERE fizmat_contest_id=?')
         .bind(externalId)
         .first<ExamRow>();
-      if (existing) {
+      if (existing?.finished_at) return error(409, 'Your attempt has finished');
+    if (existing) {
         if (user.role !== 'admin' && existing.owner_id !== user.id)
           return error(404, 'Room not found');
         return json(publicExam(existing));
@@ -588,7 +589,7 @@ async function rooms(request: Request, env: Env, path: string): Promise<Response
       exam.paused = 0;
       await env.DB.batch([
         env.DB.prepare('UPDATE exams SET active=1,paused=0 WHERE id=?').bind(exam.id),
-        env.DB.prepare('UPDATE student_sessions SET active=1 WHERE exam_id=? AND ready=1').bind(
+        env.DB.prepare('UPDATE student_sessions SET active=1 WHERE exam_id=? AND ready=1 AND finished_at IS NULL').bind(
           exam.id,
         ),
       ]);
@@ -795,9 +796,13 @@ async function students(request: Request, env: Env, path: string): Promise<Respo
       if (student.fizmat_user_id) Object.assign(exam, await startLinkedRoom(env, exam));
       student.ready = 1;
       student.active = exam.active ? 1 : 0;
-      await env.DB.prepare('UPDATE student_sessions SET ready=1,active=? WHERE id=?')
-        .bind(student.active, student.id)
-        .run();
+      const updated = await env.DB.prepare(`UPDATE student_sessions SET ready=1,active=?
+        WHERE id=? AND token_hash=? AND connected=1 AND last_seen>=? AND desktop_last_seen>=?
+        AND finished_at IS NULL RETURNING *`)
+        .bind(student.active,student.id,student.token_hash,new Date(cutoff).toISOString(),new Date(cutoff).toISOString())
+        .first<StudentRow>();
+      if (!updated) return error(409,'Client connections changed before start');
+      Object.assign(student,updated);
     }
     await broadcast(env, exam.id, 'admin', {
       type: 'student_updated',

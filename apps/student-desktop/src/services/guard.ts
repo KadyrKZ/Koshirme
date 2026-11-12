@@ -4,6 +4,7 @@ import type { DesktopState, JoinInput } from '../types';
 import { BackendClient, request, validateBackendUrl } from './backend';
 import { LocalServer } from './local-server';
 import { captureScreens, screenPermission } from './screen-capture';
+import type { ApplicationControl } from './application-control';
 
 export class Guard {
   private config: SessionConfig | null = null;
@@ -25,6 +26,7 @@ export class Guard {
   private startAttempt = 0;
   private closed = false;
   private websiteTicket: string | null = null;
+  private preparation: AbortController | null = null;
   readonly state: DesktopState;
   constructor(
     private changed: (state: DesktopState) => void,
@@ -33,6 +35,7 @@ export class Guard {
     pairingCode?: string,
     private beforeCapture: () => void = () => {},
     private activateBrowser: () => void | Promise<void> = () => {},
+    private applicationControl?: ApplicationControl,
   ) {
     const port = Number(
       process.env.KOSHIRME_LOCAL_PORT || process.env.EXAMGUARD_LOCAL_PORT || '17891',
@@ -67,6 +70,21 @@ export class Guard {
           this.browserReopenAttempted = false;
           if (this.restoreOnReconnect && this.active()) this.returnToContest();
           this.restoreOnReconnect = false;
+        } else if (
+          this.config?.fizmat &&
+          this.state.consented &&
+          this.config.session.ready &&
+          (this.config.exam.active || this.config.exam.paused)
+        ) {
+          // Do not recover Chrome into the same attempt after its extension closes.
+          // Closing the desktop socket also makes this loss visible to the server.
+          this.preparation?.abort();
+          this.startAttempt++;
+          this.state.starting = false;
+          this.state.consented = false;
+          this.config.monitoring_allowed = false;
+          this.state.error = 'Связь с расширением потеряна. Контест завершается.';
+          this.backend?.close();
         } else if (this.active()) this.scheduleBrowserReopen();
         this.publish();
       },
@@ -101,6 +119,7 @@ export class Guard {
       !this.closed &&
       this.config?.exam.active &&
       !this.config.exam.finished_at &&
+      !this.config.session.finished_at &&
       this.config.session.active &&
       (this.backend?.hasLease() || this.backend?.withinOfflineGrace())
     );
@@ -109,6 +128,7 @@ export class Guard {
     const wasMonitoring = this.state.monitoring;
     this.state.backend = this.backend?.hasLease() ?? false;
     this.state.monitoring = this.active();
+    this.applicationControl?.setActive(this.state.monitoring);
     if (wasMonitoring && !this.state.monitoring) {
       this.pendingWarning = null;
       this.pendingBrowserReturn = false;
@@ -179,16 +199,18 @@ export class Guard {
   private acceptState(state: SessionState) {
     if (!this.config || this.config.session.id !== state.session.id) return;
     if (this.config.exam.finished_at && !state.exam.finished_at) return;
+    if (this.config.session.finished_at && !state.session.finished_at) return;
     const teacherJustStarted =
       !this.config.exam.active && state.exam.active && state.session.active;
     this.config = { ...this.config, session: state.session, exam: state.exam };
     this.state.session = state.session;
     this.state.exam = state.exam;
-    if (state.exam.finished_at || !state.session.ready) {
+    if (state.exam.finished_at || state.session.finished_at || !state.session.ready) {
       this.state.consented = false;
       this.epoch++;
     }
-    if (state.exam.finished_at) {
+    if (state.exam.finished_at || state.session.finished_at || state.exam.paused) {
+      this.preparation?.abort();
       this.startAttempt++;
       this.state.starting = false;
     }
@@ -268,6 +290,7 @@ export class Guard {
     joined: Omit<SessionConfig, 'backend_url' | 'monitoring_allowed'>,
     base: string,
   ) {
+    this.preparation?.abort();
     this.backend?.close();
     this.config = { ...joined, backend_url: base, monitoring_allowed: false };
     this.epoch++;
@@ -282,6 +305,7 @@ export class Guard {
       (state) => this.acceptState(state),
       () => this.publish(),
       () => {
+        this.preparation?.abort();
         this.startAttempt++;
         this.epoch++;
         this.state.starting = false;
@@ -301,15 +325,20 @@ export class Guard {
     if (this.state.starting) throw new Error('Wait for the current session action to finish');
     if (!this.config || !this.backend?.hasLease() || !this.local.connected)
       throw new Error('Connect the backend and Chrome extension first');
+    if (this.config.exam.finished_at || this.config.session.finished_at || this.config.exam.paused)
+      throw new Error('Контест завершён или приостановлен');
     if (screenPermission() !== 'granted')
       throw new Error('Grant Screen Recording permission, then restart KOSH!RME');
     const attempt = ++this.startAttempt;
+    const preparation = (this.preparation = new AbortController());
     const backend = this.backend;
     const sessionId = this.config.session.id;
     this.state.starting = true;
     this.state.error = null;
     this.publish();
     try {
+      if (this.applicationControl) await this.applicationControl.prepare(preparation.signal);
+      if (attempt !== this.startAttempt || preparation.signal.aborted) return;
       const opening = this.local.openContest(true);
       // macOS may acknowledge Chrome's window focus without activating the application.
       void Promise.resolve(this.activateBrowser()).catch(() => {});
@@ -325,6 +354,7 @@ export class Guard {
     } catch (e) {
       if (attempt !== this.startAttempt) return;
       this.state.consented = false;
+      this.state.error = String((e as Error).message || e);
       this.publish();
       throw e;
     } finally {
@@ -337,7 +367,11 @@ export class Guard {
   openContest() {
     if (this.returningBrowser) return this.returningBrowser;
     const epoch = this.epoch;
-    const valid = () => !this.closed && epoch === this.epoch && !this.config?.exam.finished_at;
+    const valid = () =>
+      !this.closed &&
+      epoch === this.epoch &&
+      !this.config?.exam.finished_at &&
+      !this.config?.session.finished_at;
     const operation = (async () => {
       try {
         await this.local.openContest();
@@ -468,6 +502,8 @@ export class Guard {
   close() {
     if (this.closed) return;
     this.closed = true;
+    this.preparation?.abort();
+    this.applicationControl?.close();
     this.startAttempt++;
     this.state.starting = false;
     this.state.consented = false;
@@ -480,5 +516,9 @@ export class Guard {
     clearInterval(this.timer);
     this.backend?.close();
     this.local.close();
+  }
+  applicationStatus(error: string | null) {
+    this.state.applicationError = error;
+    this.publish();
   }
 }

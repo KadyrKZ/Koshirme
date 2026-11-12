@@ -99,7 +99,7 @@ export class DesktopConnection {
       const timer = setTimeout(() => {
         this.starts.delete(requestId);
         reject(new Error('Start timed out'));
-      }, 40000);
+      }, 120000);
       this.starts.set(requestId, { resolve, reject, timer });
       if (!this.send({ type: 'website_start', consent: true, request_id: requestId })) {
         clearTimeout(timer);

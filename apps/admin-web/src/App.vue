@@ -209,8 +209,8 @@ async function changePassword() {
           target="_blank"
           rel="noopener"
           class="brand-domain"
-          href="https://koshirme.stream/downloads/KOSHIRME-0.1.6-arm64.dmg"
-          >macOS · Apple Silicon 0.1.6</a
+          href="https://koshirme.stream/downloads/KOSHIRME-0.1.7-arm64.dmg"
+          >macOS · Apple Silicon 0.1.7</a
         >
       </div>
     </aside>

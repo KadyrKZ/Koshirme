@@ -1,5 +1,6 @@
 import { currentUser } from './auth';
 import { validFizmatStudent } from './student-connect';
+import { finishStudent } from './finish-student';
 import type { Env, EventRow, ExamRow, StudentRow, UserRow } from './types';
 import { now, publicEvent, publicExam, publicStudent, sha256, studentExam } from './util';
 
@@ -19,7 +20,7 @@ export interface RoomState {
 }
 
 interface Attachment {
-  kind: 'pending' | 'admin' | 'student';
+  kind: 'pending' | 'admin' | 'student' | 'replaced';
   id: string;
   role?: 'extension' | 'desktop';
   token?: string;
@@ -154,8 +155,14 @@ export class RoomEngine {
     if (!exam) throw new Error('Missing room');
     for (const candidate of this.state.getWebSockets()) {
       const current = candidate.deserializeAttachment() as Attachment | null;
-      if (current?.kind === 'student' && current.id === sessionId && current.role === role)
+      if (current?.kind === 'student' && current.id === sessionId && current.role === role) {
+        if (student.ready && (exam.active || exam.paused)) {
+          socket.close(4001, 'A client is already connected');
+          return;
+        }
+        candidate.serializeAttachment({ ...current, kind: 'replaced' });
         candidate.close(4001, 'Connection replaced');
+      }
     }
     socket.serializeAttachment({
       kind: 'student',
@@ -195,6 +202,7 @@ export class RoomEngine {
       .first<StudentRow>();
     if (
       !student ||
+      student.finished_at ||
       !attachment.role ||
       (student.fizmat_user_id &&
         (attachment.tokenHash !== student.token_hash ||
@@ -209,68 +217,100 @@ export class RoomEngine {
     this.send(socket, this.stateMessage(student, exam, 'heartbeat_ack'));
   }
 
+  async webSocketClose(socket: RoomSocket, code = 1000) {
+    const attachment = socket.deserializeAttachment() as Attachment | null;
+    if (code === 1012 || attachment?.kind !== 'student') return;
+    if (
+      this.state.getWebSockets().some((candidate) => {
+        const a = candidate.deserializeAttachment() as Attachment | null;
+        return (
+          candidate !== socket &&
+          a?.kind === 'student' &&
+          a.id === attachment.id &&
+          a.role === attachment.role
+        );
+      })
+    )
+      return;
+    const student = await this.env.DB.prepare('SELECT * FROM student_sessions WHERE id=?')
+      .bind(attachment.id)
+      .first<StudentRow>();
+    if (!student || student.token_hash !== attachment.tokenHash) return;
+    if (!student.ready) {
+      if (attachment.role === 'extension')
+        await this.env.DB.prepare('UPDATE student_sessions SET connected=0 WHERE id=? AND token_hash=?').bind(student.id,student.token_hash).run();
+      else
+        await this.env.DB.prepare('UPDATE student_sessions SET desktop_last_seen=NULL WHERE id=? AND token_hash=?').bind(student.id,student.token_hash).run();
+      return;
+    }
+    const exam = await this.env.DB.prepare('SELECT * FROM exams WHERE id=?')
+      .bind(student.exam_id)
+      .first<ExamRow>();
+    if (exam) await this.endDisconnected(student, exam, attachment.role + '_closed');
+  }
+
+  private async endDisconnected(student: StudentRow, exam: ExamRow, reason: string) {
+    const ended = await finishStudent(this.env, student, exam, reason);
+    if (!ended) return;
+    const event: EventRow = {
+      id: crypto.randomUUID(),
+      student_session_id: student.id,
+      event_type: 'STUDENT_DISCONNECTED',
+      severity: 'high',
+      current_url: null,
+      timestamp: ended.finished_at!,
+      screenshot_path: null,
+      metadata: JSON.stringify({ reason, capture_status: 'unavailable', attempt_finished: true }),
+    };
+    ended.risk_score = Math.min(100, student.risk_score + 30);
+    ended.violations_count = student.violations_count + 1;
+    ended.last_event = event.event_type;
+    await this.env.DB.batch([
+      this.env.DB.prepare(
+        'UPDATE student_sessions SET risk_score=?,violations_count=?,last_event=? WHERE id=?',
+      ).bind(ended.risk_score, ended.violations_count, ended.last_event, student.id),
+      this.env.DB.prepare(
+        'INSERT INTO violation_events(id,student_session_id,event_type,severity,current_url,timestamp,screenshot_path,metadata) VALUES(?,?,?,?,?,?,?,?)',
+      ).bind(
+        event.id,
+        student.id,
+        event.event_type,
+        event.severity,
+        null,
+        event.timestamp,
+        null,
+        event.metadata,
+      ),
+    ]);
+    this.broadcast('admin', {
+      type: 'event_created',
+      event: publicEvent(event),
+      student: publicStudent(ended),
+    });
+    this.broadcast('student', this.stateMessage(ended, exam), student.id);
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = socket.deserializeAttachment() as Attachment | null;
+      if (attachment?.kind === 'student' && attachment.id === student.id)
+        socket.close(4401, 'Attempt finished');
+    }
+  }
+
   async alarm() {
     const examId = await this.state.storage.get<string>('examId');
     if (!examId) return;
     const exam = await this.env.DB.prepare('SELECT * FROM exams WHERE id=?')
       .bind(examId)
       .first<ExamRow>();
-    if (!exam?.active) return;
-    const cutoff = new Date(Date.now() - 8_000).toISOString();
+    if (!exam || (!exam.active && !exam.paused)) return;
+    const cutoff = new Date(Date.now() - 12_000).toISOString();
     const stale = await this.env.DB.prepare(
-      'SELECT * FROM student_sessions WHERE exam_id=? AND connected=1 AND last_seen<?',
+      'SELECT * FROM student_sessions WHERE exam_id=? AND ready=1 AND finished_at IS NULL AND (connected=0 OR last_seen<? OR desktop_last_seen IS NULL OR desktop_last_seen<?)',
     )
-      .bind(examId, cutoff)
+      .bind(examId, cutoff, cutoff)
       .all<StudentRow>();
     for (const student of stale.results) {
-      student.connected = 0;
-      let event: EventRow | null = null;
-      if (student.active) {
-        event = {
-          id: crypto.randomUUID(),
-          student_session_id: student.id,
-          event_type: 'STUDENT_DISCONNECTED',
-          severity: 'high',
-          current_url: null,
-          timestamp: now(),
-          screenshot_path: null,
-          metadata: JSON.stringify({ reason: 'heartbeat_timeout', capture_status: 'unavailable' }),
-        };
-        student.risk_score = Math.min(100, student.risk_score + 30);
-        student.violations_count += 1;
-        student.last_event = event.event_type;
-        await this.env.DB.batch([
-          this.env.DB.prepare(
-            'UPDATE student_sessions SET connected=0,risk_score=?,violations_count=?,last_event=? WHERE id=?',
-          ).bind(student.risk_score, student.violations_count, student.last_event, student.id),
-          this.env.DB.prepare(
-            `INSERT INTO violation_events
-            (id,student_session_id,event_type,severity,current_url,timestamp,screenshot_path,metadata) VALUES(?,?,?,?,?,?,?,?)`,
-          ).bind(
-            event.id,
-            event.student_session_id,
-            event.event_type,
-            event.severity,
-            null,
-            event.timestamp,
-            null,
-            event.metadata,
-          ),
-        ]);
-      } else {
-        await this.env.DB.prepare('UPDATE student_sessions SET connected=0 WHERE id=?')
-          .bind(student.id)
-          .run();
-      }
-      const update = { type: 'student_updated', student: publicStudent(student) };
-      this.broadcast(
-        'admin',
-        event
-          ? { type: 'event_created', event: publicEvent(event), student: publicStudent(student) }
-          : update,
-      );
-      this.broadcast('student', this.stateMessage(student, exam), student.id);
+      await this.endDisconnected(student, exam, 'client_heartbeat_timeout');
     }
-    await this.state.storage.setAlarm(Date.now() + 5_000);
+    await this.state.storage.setAlarm(Date.now() + 2_000);
   }
 }

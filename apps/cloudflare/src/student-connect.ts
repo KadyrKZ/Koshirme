@@ -26,7 +26,9 @@ export async function startLinkedRoom(env: Env, exam: ExamRow): Promise<ExamRow>
       (await env.DB.prepare('SELECT * FROM exams WHERE id=?').bind(exam.id).first<ExamRow>()) ||
       exam
     );
-  await env.DB.prepare('UPDATE student_sessions SET active=1 WHERE exam_id=? AND ready=1')
+  await env.DB.prepare(
+    'UPDATE student_sessions SET active=1 WHERE exam_id=? AND ready=1 AND finished_at IS NULL',
+  )
     .bind(exam.id)
     .run();
   await env.ROOMS.getByName(exam.id).fetch('https://room/broadcast', {
@@ -42,6 +44,7 @@ export async function startLinkedRoom(env: Env, exam: ExamRow): Promise<ExamRow>
 }
 // Recheck the original login and contest access on redemption and every authenticated heartbeat.
 export async function validFizmatStudent(env: Env, student: StudentRow): Promise<boolean> {
+  if (student.finished_at) return false;
   if (!student.fizmat_user_id) return true;
   return !!(await source(env, {
     exam_id: student.exam_id,
@@ -60,6 +63,7 @@ async function source(env: Env, identity: Identity) {
     WHERE u.id=? AND u.role='student' AND u.active=1 AND u.deleted_at IS NULL
     AND s.token_hash=? AND s.expires_at>? AND c.deleted_at IS NULL
     AND c.status='published' AND c.monitoring_enabled=1 AND c.koshirme_exam_id=?
+    AND NOT EXISTS(SELECT 1 FROM contest_finishes cf WHERE cf.contest_id=c.id AND cf.user_id=u.id)
     AND (c.access_mode='open' OR EXISTS(SELECT 1 FROM contest_students cs WHERE cs.contest_id=c.id AND cs.user_id=u.id))`,
   )
     .bind(exam.fizmat_contest_id, identity.user_id, identity.session_hash, now(), exam.id)
@@ -105,6 +109,7 @@ export async function studentConnect(
     if (typeof body.resumeToken === 'string') {
       if (
         !existing ||
+        existing.finished_at ||
         existing.token_hash !== (await sha256(body.resumeToken)) ||
         existing.fizmat_session_hash !== identity.session_hash
       )
@@ -116,6 +121,8 @@ export async function studentConnect(
         fizmat: { contest_id: verified.exam.fizmat_contest_id, user_id: identity.user_id },
       });
     }
+    if (existing?.ready && !existing.finished_at)
+      return error(409, 'An existing attempt cannot be replaced. Reconnect the original client.');
     const token = randomToken();
     const student = await env.DB.prepare(
       `INSERT INTO student_sessions
@@ -123,7 +130,8 @@ export async function studentConnect(
       VALUES(?,?,?,?,0,0,0,?,?,NULL,0,0,NULL,?,?)
       ON CONFLICT(exam_id,fizmat_user_id) DO UPDATE SET student_name=excluded.student_name,
       token_hash=excluded.token_hash,connected=0,active=0,ready=0,last_seen=excluded.last_seen,
-      desktop_last_seen=NULL,fizmat_session_hash=excluded.fizmat_session_hash RETURNING *`,
+      desktop_last_seen=NULL,finished_at=NULL,finish_reason=NULL,fizmat_session_hash=excluded.fizmat_session_hash
+      WHERE student_sessions.ready=0 OR student_sessions.finished_at IS NOT NULL RETURNING *`,
     )
       .bind(
         crypto.randomUUID(),
@@ -136,6 +144,7 @@ export async function studentConnect(
         identity.session_hash,
       )
       .first<StudentRow>();
+    if (!student) return error(409, 'The attempt has already started');
     await env.ROOMS.getByName(identity.exam_id).fetch('https://room/broadcast', {
       method: 'POST',
       body: JSON.stringify({

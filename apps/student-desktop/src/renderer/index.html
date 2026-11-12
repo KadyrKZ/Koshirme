@@ -3,108 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:5174; img-src 'self' data:"
-    />
     <title>KOSH!RME</title>
+    <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <header>
-      <span class="logo">K</span><strong>KOSH!RME</strong>
-      <select id="language-select" aria-label="Язык">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-        <option value="kz">Қазақша</option>
-      </select>
-      <span id="edition-label" class="edition">УЧЕНИК</span>
-    </header>
-    <main>
-      <section id="join-screen">
-        <div id="join-eyebrow" class="eyebrow">ЭКЗАМЕН ПО ПРОГРАММИРОВАНИЮ</div>
-        <h1 id="join-title">Можно начинать.</h1>
-        <p id="join-description">Подключитесь к комнате учителя до начала мониторинга.</p>
-        <div id="permission-panel" class="note warning" hidden>
-          <strong id="permission-title">Сначала разрешите запись экрана</strong>
-          <p id="permission-description">
-            Откройте Системные настройки → Конфиденциальность и безопасность → Запись экрана и
-            системного аудио. Включите KOSH!RME и перезапустите приложение.
-          </p>
-          <button id="permission-button" class="secondary">Открыть настройки</button>
-        </div>
-        <form id="join-form">
-          <label id="student-name-label" for="student-name">Имя ученика</label
-          ><input
-            id="student-name"
-            placeholder="Введите своё имя"
-            maxlength="120"
-            required
-            autocomplete="name"
-          /><label id="exam-code-label" for="exam-code">Код комнаты</label
-          ><input
-            id="exam-code"
-            placeholder="Введите код комнаты"
-            inputmode="numeric"
-            pattern="[0-9]{4}"
-            maxlength="4"
-            minlength="4"
-            required
-            autocomplete="off"
-          />
-          <button type="submit" id="join-button">
-            <span id="join-button-label">Войти в комнату</span><span>→</span>
-          </button>
-        </form>
-      </section>
-      <section id="session-screen" hidden>
-        <div class="eyebrow" id="stage-label">ПРОВЕРКА СОЕДИНЕНИЯ</div>
-        <h1 id="stage-title">Проверка системы</h1>
-        <p id="stage-description">Завершите проверку перед экзаменом.</p>
-        <div id="active-banner" class="active-banner" hidden>
-          <span class="pulse-dot"></span
-          ><strong id="active-label">Мониторинг KOSH!RME активен</strong>
-        </div>
-        <div class="exam-panel">
-          <span id="your-exam-label" class="small-label">ВАШ ЭКЗАМЕН</span>
-          <h2 id="exam-title"></h2>
-          <p id="student-display"></p>
-        </div>
+    <main class="app">
+      <header>
+        <strong>KOSH!RME</strong
+        ><select id="language" aria-label="Язык">
+          <option value="ru">Русский</option>
+          <option value="kz">Қазақша</option>
+          <option value="en">English</option>
+        </select>
+      </header>
+      <section class="panel">
+        <small id="mode"></small>
+        <h1 id="title"></h1>
+        <p id="description"></p>
+        <h2 id="exam-title"></h2>
+        <p id="student"></p>
         <div class="checks">
-          <div><span id="backend-label">Соединение</span><strong id="backend-check"></strong></div>
-          <div>
-            <span id="extension-label">Расширение Chrome</span
-            ><strong id="extension-check"></strong>
-          </div>
-          <div>
-            <span id="screen-label">Разрешение на снимок экрана</span
-            ><strong id="screen-check"></strong>
-          </div>
-          <div><span id="exam-label">Сессия экзамена</span><strong id="exam-check"></strong></div>
+          <p id="backend"></p>
+          <p id="extension"></p>
+          <p id="screen"></p>
         </div>
-        <div id="pair-panel" class="note">
-          <strong id="pair-title">Подключите расширение Chrome</strong>
-          <p id="pair-description">Откройте расширение KOSH!RME и вставьте этот код:</p>
-          <div class="pair-row">
-            <code id="pair-code"></code
-            ><button id="copy-pair-button" class="copy-button">Копировать</button>
-          </div>
-        </div>
-        <div id="consent-panel">
-          <label class="consent"
-            ><input id="consent" type="checkbox" /><span id="consent-label"
-              >Я согласен с мониторингом вкладки экзамена и снимком экрана при серьёзном
-              нарушении.</span
-            ></label
-          ><button id="start-button" disabled>
-            <span id="start-button-label">Готов к экзамену</span><span>→</span>
-          </button>
-        </div>
-        <button id="another-button" class="secondary" hidden>
-          Подключиться к другому экзамену
-        </button>
+        <p id="notice"></p>
+        <button id="permission-button" class="secondary" hidden></button>
       </section>
       <p id="error" class="error" role="alert"></p>
-      <small class="signature">by Mr. Kadyr</small>
+      <small class="signature">by Mr. Kadyr · Desktop 0.1.7</small>
     </main>
     <script type="module" src="./index.ts"></script>
   </body>
