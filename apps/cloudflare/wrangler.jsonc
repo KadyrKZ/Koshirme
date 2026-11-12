@@ -1,0 +1,10 @@
+// Production runs on Contabo. This intentionally has no entrypoint, bindings,
+// routes, cron or migrations, so a default Wrangler deploy cannot recreate it.
+// Legacy configuration is archived in wrangler.legacy.jsonc.disabled.
+{
+  "name": "koshirme",
+  "account_id": "73cd92ed0a48ef050bed88ce60b7979b",
+  "compatibility_date": "2026-11-05",
+  "workers_dev": false,
+  "preview_urls": false
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@koshirme/chrome-extension",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@koshirme/protocol": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "@types/chrome": "^0.1.36"
+  }
+}

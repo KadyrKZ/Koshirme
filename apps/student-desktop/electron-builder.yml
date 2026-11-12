@@ -1,0 +1,42 @@
+appId: kz.koshirme.desktop
+productName: KOSH!RME
+artifactName: KOSHIRME-${version}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+asar: true
+protocols:
+  - name: KOSH!RME contest connection
+    schemes: [koshirme]
+toolsets:
+  nsis: '1.2.1'
+mac:
+  category: public.app-category.education
+  identity: Developer ID Application
+  type: distribution
+  forceCodeSigning: true
+  notarize: true
+  # locale.pak contains data, not executable code. The signed Electron framework
+  # seals these resources; signing every gender/language variant separately adds
+  # hundreds of timestamp requests without protecting additional executables.
+  signIgnore:
+    - '\.lproj/locale\.pak$'
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  hardenedRuntime: true
+  extendInfo:
+    NSScreenCaptureUsageDescription: KOSH!RME captures the screen only for a serious violation during an active exam.
+dmg:
+  sign: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

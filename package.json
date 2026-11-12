@@ -1,0 +1,32 @@
+{
+  "name": "koshirme",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/admin-web",
+    "apps/chrome-extension",
+    "apps/student-desktop",
+    "apps/cloudflare",
+    "packages/protocol"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @koshirme/admin-web && npm run build --workspace @koshirme/chrome-extension && npm run build --workspace @koshirme/student-desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tests/tsconfig.json",
+    "test": "node scripts/run-unit-tests.mjs && npm run test:guard",
+    "test:e2e": "playwright test",
+    "dev:admin": "npm run dev --workspace @koshirme/admin-web",
+    "dev:desktop": "npm run dev --workspace @koshirme/student-desktop",
+    "test:guard": "node scripts/run-unit-tests.mjs --guard"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}

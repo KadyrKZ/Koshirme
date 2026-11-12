@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-examguard}
+      POSTGRES_USER: ${POSTGRES_USER:-examguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-examguard_local}
+    ports: ['127.0.0.1:5432:5432']
+    volumes: ['postgres_data:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./apps/backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-examguard}:${POSTGRES_PASSWORD:-examguard_local}@postgres:5432/${POSTGRES_DB:-examguard}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-examguard-local-teacher-key}
+      ALLOW_LEGACY_ADMIN: ${ALLOW_LEGACY_ADMIN:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080}
+      UPLOAD_DIR: /app/uploads/screenshots
+      SEED_DEMO: ${SEED_DEMO:-true}
+      HEARTBEAT_TIMEOUT_SECONDS: ${HEARTBEAT_TIMEOUT_SECONDS:-15}
+      MONITORING_LEASE_SECONDS: ${MONITORING_LEASE_SECONDS:-12}
+      MAX_SCREENSHOT_BYTES: ${MAX_SCREENSHOT_BYTES:-5242880}
+    ports: ['8000:8000']
+    volumes: ['screenshots:/app/uploads/screenshots']
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  admin:
+    profiles: ['admin']
+    build:
+      context: .
+      dockerfile: apps/admin-web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports: ['8080:80']
+    depends_on:
+      backend: { condition: service_healthy }
+volumes:
+  postgres_data:
+  screenshots:

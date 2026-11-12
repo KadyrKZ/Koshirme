@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KOSH!RME — Windows: запуск и сборка EXE</title>
+<style>body{margin:0;background:#f4f6fc;color:#18253c;font:17px/1.6 system-ui,sans-serif}main{max-width:880px;margin:auto;padding:32px 20px}h1{font-size:32px;line-height:1.25}h2{margin-top:38px}a{color:#215dc4}pre{overflow:auto;background:#14253f;color:#f5f8ff;padding:18px;border-radius:10px;font-size:14px}p code,li code{background:#e3eaf6;border-radius:4px;padding:2px 5px;overflow-wrap:anywhere}li{margin:9px 0}.download{display:inline-block;background:#215dc4;color:white;padding:12px 18px;border-radius:8px;text-decoration:none}nav a{margin-right:20px}</style>
+<main><nav><a href="/">KOSH!RME</a><a href="/guide.html">Инструкция ученику и учителю</a></nav>
+<p><a class="download" href="/downloads/KOSHIRME-0.1.6-Windows-source.zip">Скачать исходники Windows 0.1.6</a></p>
+<h1>Windows: сборка KOSH!RME 0.1.6</h1>
+<p>Архив содержит исходники приложения, расширения и сценарии сборки полноценного установщика EXE. Windows EXE 0.1.6 нужно собрать и проверить на Windows 10/11 x64. Сборка на Mac не заменяет эту проверку.</p>
+<h2>Подготовка</h2>
+<ol>
+<li>Установите Node.js x64 с npm, версия не ниже 22.12. Включите Add to PATH.</li>
+<li>Распакуйте KOSHIRME-0.1.6-Windows-source.zip в отдельную папку, например C:\Koshirme. Внутри будет папка examguard.</li>
+<li>Закройте запущенный KOSH!RME. Не переносите node_modules с Mac.</li>
+<li>Для сборки нужен интернет. Python, Docker и локальная база данных не нужны.</li>
+</ol>
+<h2>Собрать EXE</h2>
+<p>Откройте файл <strong>Build-Windows.cmd</strong> в папке examguard. Он запускает PowerShell только для этого процесса, устанавливает зависимости по package-lock.json, проверяет типы и тесты и собирает установщик.</p>
+<p>Или выполните в PowerShell из папки examguard:</p>
+<pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\apps\student-desktop\scripts\build-windows.ps1</code></pre>
+<p>Результаты находятся в apps/student-desktop/release:</p>
+<ul>
+<li>KOSHIRME-0.1.6-x64.exe — установщик приложения.</li>
+<li>KOSHIRME-0.1.6-x64.exe.sha256 — контрольная сумма.</li>
+<li>koshirme-chrome-extension-0.3.0.zip — расширение Chrome.</li>
+<li>koshirme-chrome-extension-0.3.0.zip.sha256 — контрольная сумма.</li>
+</ul>
+<p>Без настроенного сертификата Windows EXE будет без Authenticode-подписи. Не выдавайте исходный ZIP за готовый установщик.</p>
+<h2>Проверка на Windows</h2>
+<ol>
+<li>Установите EXE. Установщик регистрирует ссылку koshirme:// для запуска из браузера.</li>
+<li>Установите расширение 0.3.0 или новее. Версия 0.2.9 поддерживает прежний ручной вход, но не автоматическое подключение Fizmat. Пока 0.3.0 не опубликована в магазине, для теста распакуйте ZIP и выберите chrome://extensions → Режим разработчика → Загрузить распакованное расширение. Отключите другую копию KOSH!RME в этом профиле.</li>
+<li>Учитель включает мониторинг в отдельном тестовом контесте fizmat.win. Ученик входит в свой аккаунт и открывает контест.</li>
+<li>Подтвердите открытие приложения в Chrome. Имя, комната и связь с расширением передаются автоматически. Копировать код не нужно.</li>
+<li>На странице должно появиться «Всё готово». Дайте согласие на мониторинг и нажмите «Начать контест». Учитель должен видеть ученика в мониторинге того же контеста.</li>
+<li>Проверьте перезагрузку страницы, восстановление соединения, паузу, продолжение и завершение. После завершения блокировки должны сниматься.</li>
+<li>В тестовой комнате проверьте переключение вкладки и возврат к контесту. Для проверки снимков используйте тестовый рабочий стол без личных данных.</li>
+<li>Проверьте повторный вход с другой сессии: учитель разрешает вход, запрос исчезает, ученик может войти снова.</li>
+</ol>
+<p>Для независимой комнаты на koshirme.stream сохранён ручной вход по коду. Автоматический вход используется в контестах Fizmat.</p>
+<h2>Если сборка не проходит</h2>
+<ul>
+<li>Node не найден: переустановите Node x64 с npm и PATH, затем откройте новое окно терминала.</li>
+<li>EPERM или занятый Electron: закройте процессы этого проекта и повторите сборку.</li>
+<li>Не скачивается Electron или NSIS: проверьте интернет и прокси.</li>
+<li>Приложение не открывается из браузера: установите EXE, а не только запустите исходники.</li>
+<li>Нет связи: проверьте версии, одну копию расширения и один Desktop.</li>
+</ul>
+<p>После проверки EXE можно загрузить владельцу в существующий bucket examguard-downloads. Ссылку на установщик на сайте следует обновлять только после загрузки и проверки файла. Текущий комплект не публикует непроверенный Windows EXE автоматически.</p></main></html>

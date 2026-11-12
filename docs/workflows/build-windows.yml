@@ -1,0 +1,29 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Validate and build Windows x64
+        shell: powershell
+        run: ./apps/student-desktop/scripts/build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koshirme-windows-x64
+          path: |
+            apps/student-desktop/release/KOSHIRME-*-x64.exe
+            apps/student-desktop/release/KOSHIRME-*-x64.exe.sha256
+            apps/student-desktop/release/koshirme-chrome-extension-*.zip
+            apps/student-desktop/release/koshirme-chrome-extension-*.zip.sha256
+          if-no-files-found: error

@@ -1,0 +1,27 @@
+{
+  "GenAiDefaultSettings": 2,
+  "GeminiSettings": 1,
+  "AIModeSettings": 1,
+  "SearchContentSharingSettings": 1,
+  "GoogleSearchSidePanelEnabled": false,
+  "LensOverlaySettings": 1,
+  "LensRegionSearchEnabled": false,
+  "LensDesktopNTPSearchEnabled": false,
+  "IncognitoModeAvailability": 1,
+  "BrowserGuestModeEnabled": false,
+  "BrowserAddPersonEnabled": false,
+  "DeveloperToolsAvailability": 2,
+  "TaskManagerEndProcessEnabled": false,
+  "PrintingEnabled": false,
+  "URLBlocklist": [
+    "chrome://extensions",
+    "chrome://extensions-internals",
+    "chrome://flags",
+    "chrome://inspect",
+    "chrome://settings"
+  ],
+  "ExtensionInstallBlocklist": ["*"],
+  "ExtensionInstallForcelist": [
+    "mcfibeppldfkaahnjdpbcfpbncemolnp;https://clients2.google.com/service/update2/crx"
+  ]
+}

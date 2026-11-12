@@ -1,0 +1,34 @@
+name: Publish Chrome extension
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'extension-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @koshirme/chrome-extension
+      - name: Package extension
+        run: |
+          cd apps/chrome-extension/dist
+          zip -qr "$GITHUB_WORKSPACE/koshirme-chrome-extension.zip" .
+      - name: Upload and publish in Chrome Web Store
+        env:
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: node apps/chrome-extension/scripts/publish-webstore.mjs koshirme-chrome-extension.zip
