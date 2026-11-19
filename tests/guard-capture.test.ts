@@ -45,7 +45,7 @@ test('slow capture finishes before warning or Chrome restore; old overlays are h
   const event = {
     id: 'event1',
     student_session_id: 's1',
-    event_type: 'CHROME_FOCUS_LOST',
+    event_type: 'BROWSER_UI_ATTEMPT',
     severity: 'high',
     screenshot_path: null,
   };
@@ -69,7 +69,7 @@ test('slow capture finishes before warning or Chrome restore; old overlays are h
             await new Promise((r) => setTimeout(r, 550));
             return event;
           }
-          order.push('upload');
+          order.push(path.endsWith('/screenshot-status') ? 'status' : 'upload');
           return {};
         }
         close() {}
@@ -88,6 +88,7 @@ test('slow capture finishes before warning or Chrome restore; old overlays are h
     await guard.join({ studentName: 'Test Student', joinCode: '1234' });
     guard.state.consented = true;
     const operation = (guard as any).capture('event1') as Promise<void>;
+    await (guard as any).capture('event1');
     await authorizedPromise;
     assert.deepEqual(order, ['hide', 'capture-start']);
     releaseCapture();

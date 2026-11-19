@@ -12,6 +12,7 @@ export class Guard {
   private local: LocalServer;
   private timer: ReturnType<typeof setInterval>;
   private capturing = false;
+  private captureRequests = new Set<string>();
   private collectingScreen = false;
   private pendingWarning: string | null = null;
   private pendingBrowserReturn = false;
@@ -177,7 +178,8 @@ export class Guard {
     }, delay);
   }
   private handleViolation(type: string) {
-    if (type === 'CHROME_FOCUS_LOST' || type === 'TAB_CHANGED') this.pendingBrowserReturn = true;
+    if (type === 'CHROME_FOCUS_LOST' || type === 'TAB_CHANGED' || type === 'BROWSER_UI_ATTEMPT')
+      this.pendingBrowserReturn = true;
     if (this.collectingScreen) {
       this.pendingWarning = type;
       return;
@@ -404,6 +406,17 @@ export class Guard {
     return operation;
   }
   private async capture(eventId: string) {
+    // The extension and the server can both request evidence for the same event.
+    // A duplicate arriving during authorization must not mark that event as rate limited.
+    if (this.captureRequests.has(eventId)) return;
+    this.captureRequests.add(eventId);
+    try {
+      await this.captureEvent(eventId);
+    } finally {
+      this.captureRequests.delete(eventId);
+    }
+  }
+  private async captureEvent(eventId: string) {
     if (
       !this.active() ||
       !this.local.connected ||

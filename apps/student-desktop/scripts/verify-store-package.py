@@ -52,6 +52,7 @@ with ZipFile(PACKAGE) as z:
     publisher_id = "".join(alphabet[int(publisher_bits[i:i+5], 2)] for i in range(0, 65, 5))
     require(f"{NAME}_{publisher_id}" == FAMILY, "Unexpected package family")
     require(manifest.findtext(F + "Properties/" + F + "PublisherDisplayName") == "Maratuly Kadyr", "Wrong publisher display name")
+    require(manifest.findtext(F + "Properties/" + F + "DisplayName") == "KOSHIRME", "Package display name must match the reserved Store name")
     require(manifest.find(F + "Dependencies/" + F + "TargetDeviceFamily").get("MinVersion") == "10.0.19041.0", "Wrong minimum Windows version")
     app = manifest.find(F + "Applications/" + F + "Application")
     require(app.attrib == {"Id": "KOSHIRME", "Executable": "app\\KOSH!RME.exe", "EntryPoint": "Windows.FullTrustApplication"}, "Unexpected activation entry point")

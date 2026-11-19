@@ -67,3 +67,11 @@ On an active exam page:
    `LensDesktopNTPSearchEnabled` must be shown as managed with the disabled values.
 
 These browser controls cannot prevent a student from using a phone, another computer, a virtual machine, Remote Desktop, or an AI application outside Chrome. Dedicated non-admin OS accounts, MDM/kiosk controls, and room supervision are still required.
+
+## Lens и Gemini из меню Chrome
+
+Chrome может открыть встроенную панель из меню «три точки» без перехода на другой адрес. Расширение возвращает фокус на контест при обнаружении ухода в интерфейс Chrome и блокирует обычные запрещённые вкладки. API боковых панелей управляет панелью самого расширения. Для блокировки встроенных функций нужны политики Chrome, действующие до входа в контест.
+
+На поддерживаемых школьных компьютерах проверьте в `chrome://policy` `GeminiSettings=1`, `GenAiDefaultSettings=2`, `SearchContentSharingSettings=1` и `GoogleSearchSidePanelEnabled=false`. Затем в том же профиле проверьте меню «три точки», контекстное меню, поиск по изображению и кнопку Gemini. Старые Lens-политики могут отображаться как устаревшие в новых версиях Chrome.
+
+[Справочник политик Chrome](https://chromeenterprise.google/policies/) · [API боковых панелей](https://developer.chrome.com/docs/extensions/reference/api/sidePanel)
