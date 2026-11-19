@@ -36,6 +36,7 @@ export class Guard {
     private beforeCapture: () => void = () => {},
     private activateBrowser: () => void | Promise<void> = () => {},
     private applicationControl?: ApplicationControl,
+    private readScreenStatus = screenPermission,
   ) {
     const port = Number(
       process.env.KOSHIRME_LOCAL_PORT || process.env.EXAMGUARD_LOCAL_PORT || '17891',
@@ -46,7 +47,7 @@ export class Guard {
       starting: false,
       backend: false,
       extension: false,
-      permission: screenPermission(),
+      permission: this.readScreenStatus(),
       pairingCode: pairingCode || randomBytes(4).toString('hex').toUpperCase(),
       session: null,
       exam: null,
@@ -109,9 +110,12 @@ export class Guard {
       }),
     );
     this.timer = setInterval(() => {
-      this.state.permission = screenPermission();
-      this.publish();
+      this.refreshScreenStatus();
     }, 1000);
+  }
+  refreshScreenStatus() {
+    this.state.permission = this.readScreenStatus();
+    this.publish();
   }
   private active() {
     return !!(
@@ -327,8 +331,9 @@ export class Guard {
       throw new Error('Connect the backend and Chrome extension first');
     if (this.config.exam.finished_at || this.config.session.finished_at || this.config.exam.paused)
       throw new Error('Контест завершён или приостановлен');
-    if (screenPermission() !== 'granted')
-      throw new Error('Grant Screen Recording permission, then restart KOSH!RME');
+    this.refreshScreenStatus();
+    if (this.state.permission !== 'granted')
+      throw new Error('Завершите проверку доступа к экрану в Коширме.');
     const attempt = ++this.startAttempt;
     const preparation = (this.preparation = new AbortController());
     const backend = this.backend;
@@ -344,6 +349,8 @@ export class Guard {
       void Promise.resolve(this.activateBrowser()).catch(() => {});
       await opening;
       if (attempt !== this.startAttempt) return;
+      if (this.readScreenStatus() !== 'granted')
+        throw new Error('Завершите проверку доступа к экрану в Коширме.');
       const state = await backend.request<SessionState>(
         `/api/student/sessions/${sessionId}/ready`,
         { method: 'POST' },
@@ -517,8 +524,14 @@ export class Guard {
     this.backend?.close();
     this.local.close();
   }
-  applicationStatus(error: string | null) {
+  applicationStatus(error: string | null, enforcing = false) {
     this.state.applicationError = error;
+    if (error && enforcing && this.active() && this.config) {
+      this.state.consented = false;
+      this.config.monitoring_allowed = false;
+      this.local.sendConfig();
+      this.backend?.close();
+    }
     this.publish();
   }
 }

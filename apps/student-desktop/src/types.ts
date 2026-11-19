@@ -20,5 +20,6 @@ export interface JoinInput {
 export interface GuardAPI {
   getState(): Promise<DesktopState>;
   screenPermission(): Promise<void>;
+  checkApplications(): Promise<void>;
   onState(callback: (state: DesktopState) => void): () => void;
 }

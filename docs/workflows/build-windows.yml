@@ -1,13 +1,27 @@
 name: Build Windows installer
 
 on:
+  pull_request:
+    paths:
+      - 'apps/student-desktop/**'
+      - 'apps/chrome-extension/**'
+      - 'packages/protocol/**'
+      - 'tests/guard-*.test.ts'
+      - 'package-lock.json'
+      - '.github/workflows/build-windows.yml'
   workflow_dispatch:
+    inputs:
+      signed:
+        description: Sign and verify the installer for distribution
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  windows:
+  windows-test:
+    if: github.event_name == 'pull_request' || !inputs.signed
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,12 +29,34 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Validate and build Windows x64
+      - name: Test and build Windows x64
         shell: powershell
+        run: ./apps/student-desktop/scripts/build-windows.ps1 -UnsignedTestBuild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koshirme-windows-x64-test
+          path: apps/student-desktop/release/KOSHIRME-*-x64-TEST.exe*
+          if-no-files-found: error
+
+  windows-signed:
+    if: github.event_name == 'workflow_dispatch' && inputs.signed
+    environment: windows-signing
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Build and verify signed Windows x64 installer
+        shell: powershell
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: ./apps/student-desktop/scripts/build-windows.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: koshirme-windows-x64
+          name: koshirme-windows-x64-signed
           path: |
             apps/student-desktop/release/KOSHIRME-*-x64.exe
             apps/student-desktop/release/KOSHIRME-*-x64.exe.sha256

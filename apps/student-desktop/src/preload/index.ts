@@ -3,6 +3,7 @@ import type { DesktopState, GuardAPI } from '../types';
 const api: GuardAPI = {
   getState: () => ipcRenderer.invoke('guard:get-state'),
   screenPermission: () => ipcRenderer.invoke('guard:screen-permission'),
+  checkApplications: () => ipcRenderer.invoke('guard:check-applications'),
   onState(callback) {
     const listener = (_event: Electron.IpcRendererEvent, state: DesktopState) => callback(state);
     ipcRenderer.on('guard:state', listener);

@@ -43,7 +43,7 @@ export function nativeApplicationDriver(binary: string): ApplicationDriver {
     },
   };
 }
-export class MacApplicationControl implements ApplicationControl {
+export class ApplicationController implements ApplicationControl {
   private active = false;
   private prepared = false;
   private closed = false;
@@ -127,3 +127,6 @@ export class MacApplicationControl implements ApplicationControl {
     this.watch?.abort();
   }
 }
+
+// Compatibility for existing macOS consumers.
+export { ApplicationController as MacApplicationControl };

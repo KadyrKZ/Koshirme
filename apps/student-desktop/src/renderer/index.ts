@@ -21,7 +21,13 @@ const copy = {
     screen: 'Запись экрана',
     yes: 'Подключено',
     no: 'Ожидание',
-    permission: 'Разрешить запись экрана',
+    permission: 'Проверить доступ к экрану',
+    checking: 'Проверка',
+    required: 'Нужен доступ',
+    captureFailed: 'Захват недоступен',
+    checkApps: 'Проверить приложения снова',
+    permissionHelp:
+      'Разрешите доступ к экрану в настройках системы. При необходимости перезапустите Коширме.',
   },
   kz: {
     waiting: 'Контест күтілуде',
@@ -38,7 +44,13 @@ const copy = {
     screen: 'Экран жазу',
     yes: 'Қосылды',
     no: 'Күту',
-    permission: 'Экран жазуға рұқсат беру',
+    permission: 'Экранға қол жеткізуді тексеру',
+    checking: 'Тексерілуде',
+    required: 'Рұқсат қажет',
+    captureFailed: 'Экранды түсіру қолжетімсіз',
+    checkApps: 'Қолданбаларды қайта тексеру',
+    permissionHelp:
+      'Жүйе баптауларында экранға қол жеткізуге рұқсат беріңіз. Қажет болса, Көшірмені қайта іске қосыңыз.',
   },
   en: {
     waiting: 'Waiting for a contest',
@@ -55,7 +67,12 @@ const copy = {
     screen: 'Screen recording',
     yes: 'Connected',
     no: 'Waiting',
-    permission: 'Allow screen recording',
+    permission: 'Check screen access',
+    checking: 'Checking',
+    required: 'Permission required',
+    captureFailed: 'Capture unavailable',
+    checkApps: 'Check applications again',
+    permissionHelp: 'Allow screen access in System Settings. Restart Koshirme if prompted.',
   },
 };
 let language: keyof typeof copy = 'ru',
@@ -81,12 +98,25 @@ function render(s: DesktopState) {
   for (const [id, label, ready] of [
     ['backend', t.backend, s.backend],
     ['extension', t.extension, s.extension],
-    ['screen', t.screen, s.permission === 'granted'],
   ] as const) {
     el(id).textContent = (ready ? '✓ ' : '○ ') + label + ' · ' + (ready ? t.yes : t.no);
   }
+  const screenStatus =
+    s.permission === 'granted'
+      ? t.yes
+      : s.permission === 'checking'
+        ? t.checking
+        : s.permission === 'capture_failed'
+          ? t.captureFailed
+          : t.required;
+  el('screen').textContent =
+    (s.permission === 'granted' ? '✓ ' : '○ ') + t.screen + ' · ' + screenStatus;
+  el('permission-help').textContent = t.permissionHelp;
+  el('permission-help').hidden = !['denied', 'restricted', 'not-determined'].includes(s.permission);
   el('notice').textContent = t.notice;
-  el('permission-button').hidden = s.permission === 'granted';
+  el('permission-button').hidden = ['granted', 'checking'].includes(s.permission);
+  el('application-button').hidden = !s.applicationError || s.monitoring || s.starting;
+  el('application-button').textContent = t.checkApps;
   el('permission-button').textContent = t.permission;
   el('error').textContent = s.applicationError || s.error || '';
 }
@@ -101,5 +131,6 @@ el('permission-button').addEventListener(
       el('error').textContent = String(error);
     }),
 );
+el('application-button').addEventListener('click', () => void window.examguard.checkApplications());
 void window.examguard.getState().then(render);
 window.examguard.onState(render);

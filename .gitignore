@@ -19,19 +19,4 @@ test-results/
 .dev.vars
 .wrangler/
 
-# Private and generated local data
-.env.*
-!.env.example
-.dev.vars*
-*.sqlite*
-*.db
-*.pem
-*.key
-*.p12
-*.pfx
-artifacts/
-output/
-tmp/
-.playwright-cli/
-
 apps/student-desktop/native/bin/

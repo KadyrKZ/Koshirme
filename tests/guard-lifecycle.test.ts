@@ -177,6 +177,51 @@ test('guard releases a finished or revoked session and does not reopen tabs on d
         }
       },
     );
+    await t.test('failed screen or application checks withhold Ready from the server', async () => {
+      for (const issue of ['screen', 'applications']) {
+        readyRequests = 0;
+        const guard = new Guard(
+          () => {},
+          () => {},
+          () => {},
+          undefined,
+          undefined,
+          undefined,
+          {
+            prepare: async () => {
+              throw new Error('Windows check failed');
+            },
+            setActive() {},
+            close() {},
+          },
+          () => (issue === 'screen' ? 'capture_failed' : 'granted'),
+        );
+        try {
+          await guard.join({ studentName: 'Test', joinCode: '1234' });
+          await assert.rejects(
+            guard.start(),
+            issue === 'screen' ? /доступа к экрану/ : /Windows check failed/,
+          );
+          assert.equal(readyRequests, 0);
+          assert.equal(guard.state.monitoring, false);
+          assert.equal(guard.state.consented, false);
+        } finally {
+          guard.close();
+        }
+      }
+    });
+    await t.test('failed ongoing application verification releases the contest lease', async () => {
+      const guard = await makeGuard();
+      try {
+        const before = backendCloses;
+        guard.applicationStatus('Windows check failed', true);
+        assert.equal(guard.state.monitoring, false);
+        assert.equal(guard.state.consented, false);
+        assert.equal(backendCloses, before + 1);
+      } finally {
+        guard.close();
+      }
+    });
     await t.test('finish cancels an in-flight Ready operation', async () => {
       const guard = await makeGuard();
       let release!: () => void;

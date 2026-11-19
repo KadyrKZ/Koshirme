@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key>
+      <string>com.google.Chrome</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+      <key>PayloadIdentifier</key>
+      <string>kz.koshirme.chrome.exam</string>
+      <key>PayloadUUID</key>
+      <string>5E8FF92E-93EA-4DA2-83F5-8EB8F4487B96</string>
+      <key>PayloadDisplayName</key>
+      <string>KOSH!RME Chrome restrictions</string>
+
+      <key>GenAiDefaultSettings</key>
+      <integer>2</integer>
+      <key>GeminiSettings</key>
+      <integer>1</integer>
+      <key>AIModeSettings</key>
+      <integer>1</integer>
+      <key>SearchContentSharingSettings</key>
+      <integer>1</integer>
+      <key>GoogleSearchSidePanelEnabled</key>
+      <false/>
+      <key>LensOverlaySettings</key>
+      <integer>1</integer>
+      <key>LensRegionSearchEnabled</key>
+      <false/>
+      <key>LensDesktopNTPSearchEnabled</key>
+      <false/>
+      <key>IncognitoModeAvailability</key>
+      <integer>1</integer>
+      <key>BrowserGuestModeEnabled</key>
+      <false/>
+      <key>BrowserAddPersonEnabled</key>
+      <false/>
+      <key>DeveloperToolsAvailability</key>
+      <integer>2</integer>
+      <key>TaskManagerEndProcessEnabled</key>
+      <false/>
+      <key>PrintingEnabled</key>
+      <false/>
+      <key>URLBlocklist</key>
+      <array>
+        <string>chrome://extensions</string>
+        <string>chrome://extensions-internals</string>
+        <string>chrome://flags</string>
+        <string>chrome://inspect</string>
+        <string>chrome://settings</string>
+      </array>
+
+      <key>ExtensionInstallBlocklist</key>
+      <array>
+        <string>*</string>
+      </array>
+      <key>ExtensionInstallForcelist</key>
+      <array>
+        <string>mcfibeppldfkaahnjdpbcfpbncemolnp;https://clients2.google.com/service/update2/crx</string>
+      </array>
+    </dict>
+  </array>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+  <key>PayloadIdentifier</key>
+  <string>kz.koshirme.chrome</string>
+  <key>PayloadUUID</key>
+  <string>5996BC10-51E1-49C4-88B8-CBA5C8796969</string>
+  <key>PayloadDisplayName</key>
+  <string>KOSH!RME Exam Chrome</string>
+  <key>PayloadDescription</key>
+  <string>Force-installs KOSH!RME and disables browser AI features for exams.</string>
+  <key>PayloadOrganization</key>
+  <string>KOSH!RME</string>
+  <key>PayloadScope</key>
+  <string>System</string>
+</dict>
+</plist>

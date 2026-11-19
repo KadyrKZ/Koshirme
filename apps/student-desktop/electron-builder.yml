@@ -35,10 +35,17 @@ mac:
       arch: [arm64]
   hardenedRuntime: true
   extendInfo:
-    NSScreenCaptureUsageDescription: KOSH!RME captures the screen only for a serious violation during an active exam.
+    NSScreenCaptureUsageDescription: KOSH!RME checks screen access during setup and captures evidence for serious violations during an active exam.
 dmg:
   sign: true
 win:
+  forceCodeSigning: true
+  signtoolOptions:
+    signingHashAlgorithms: [sha256]
+  signExts: [.dll]
+  extraResources:
+    - from: native/bin/koshirme-app-guard.exe
+      to: koshirme-app-guard.exe
   target:
     - target: nsis
       arch: [x64]

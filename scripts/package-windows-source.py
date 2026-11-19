@@ -72,7 +72,7 @@ allowed_files = ['Build-Windows.cmd', 'package.json', 'package-lock.json', 'tsco
                  '.prettierrc.json', '.gitignore', '.env.example', 'docker-compose.yml', 'README.md']
 allowed_dirs = ['apps', 'packages', 'tests', 'scripts', 'docs', '.github', 'enterprise-policy']
 excluded_dirs = {'node_modules', 'release', 'out', 'dist', 'dist-worker', '.venv', '.wrangler',
-                 'uploads', '__pycache__', '.ruff_cache', '.pytest_cache', 'test-results', '.git'}
+                 'uploads', '__pycache__', '.ruff_cache', '.pytest_cache', 'test-results', '.git', 'bin'}
 
 def include(path):
     relative = path.relative_to(root)

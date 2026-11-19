@@ -1,11 +1,38 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session } from 'electron';
 import { join } from 'node:path';
+import { windowsApplicationDriver } from '../services/windows-application-driver';
 import { connectionTicket } from '../services/deep-link';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { Guard } from '../services/guard';
-import { MacApplicationControl, nativeApplicationDriver } from '../services/application-control';
+import { ApplicationController, nativeApplicationDriver } from '../services/application-control';
 import { ChromeBrowser } from '../services/chrome-browser';
-import { requestScreenPermission } from '../services/screen-capture';
+import {
+  openScreenSettings,
+  probeScreenCapture,
+  screenPermission,
+} from '../services/screen-capture';
+import { ScreenSetup } from '../services/screen-setup';
+
+function desktopLog(entry: Record<string, unknown>) {
+  try {
+    const directory = app.getPath('logs');
+    mkdirSync(directory, { recursive: true });
+    const file = join(directory, 'desktop-checks.log');
+    if (existsSync(file) && statSync(file).size >= 1024 * 1024)
+      renameSync(file, join(directory, 'desktop-checks.previous.log'));
+    appendFileSync(file, JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n');
+  } catch (error) {
+    console.error('Cannot write desktop diagnostics', error, entry);
+  }
+}
 
 let guard: Guard | null = null;
 let pendingTicket: string | null = null;
@@ -109,6 +136,7 @@ else {
   });
   void app.whenReady().then(async () => {
     app.setName('KOSH!RME');
+    if (process.platform === 'win32') app.setAppLogsPath(join(app.getPath('userData'), 'logs'));
     if (app.isPackaged) app.setAsDefaultProtocolClient('koshirme');
     Menu.setApplicationMenu(null);
     session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) =>
@@ -137,6 +165,45 @@ else {
     const chromeBrowser = new ChromeBrowser(
       app.isPackaged ? undefined : process.env.KOSHIRME_CHROME_APP_PATH,
     );
+    const screenSetup = new ScreenSetup(screenPermission, probeScreenCapture, (error) => {
+      desktopLog({
+        stage: 'screen-setup',
+        api: 'desktopCapturer.getSources',
+        exception: String(error),
+      });
+    });
+    const windowsDriver =
+      process.platform === 'win32'
+        ? windowsApplicationDriver(
+            app.isPackaged
+              ? join(process.resourcesPath, 'koshirme-app-guard.exe')
+              : join(app.getAppPath(), 'native/bin/koshirme-app-guard.exe'),
+            process.pid,
+            undefined,
+            desktopLog,
+          )
+        : undefined;
+    const setupLifetime = new AbortController();
+    const checkWindows = async () => {
+      if (!windowsDriver || guard?.state.starting || guard?.state.monitoring) return;
+      try {
+        await windowsDriver.list(setupLifetime.signal);
+        if (!setupLifetime.signal.aborted && !guard?.state.starting && !guard?.state.monitoring)
+          guard?.applicationStatus(null);
+      } catch (error) {
+        if (!setupLifetime.signal.aborted && !guard?.state.starting && !guard?.state.monitoring)
+          guard?.applicationStatus((error as Error).message);
+      }
+    };
+    const checkScreen = async (openSettings: boolean) => {
+      if (setupLifetime.signal.aborted || guard?.state.starting || guard?.state.monitoring) return;
+      const checking = screenSetup.check();
+      guard?.refreshScreenStatus();
+      await checking;
+      if (setupLifetime.signal.aborted) return;
+      guard?.refreshScreenStatus();
+      if (openSettings && screenPermission() !== 'granted') await openScreenSettings();
+    };
     guard = new Guard(
       (state) => {
         if (quitting) return;
@@ -157,13 +224,14 @@ else {
       pairingCode || undefined,
       hideViolations,
       () => chromeBrowser.activate(),
-      process.platform === 'darwin'
-        ? new MacApplicationControl(
-            nativeApplicationDriver(
-              app.isPackaged
-                ? join(process.resourcesPath, 'koshirme-app-guard')
-                : join(app.getAppPath(), 'native/bin/koshirme-app-guard'),
-            ),
+      ['darwin', 'win32'].includes(process.platform)
+        ? new ApplicationController(
+            windowsDriver ??
+              nativeApplicationDriver(
+                app.isPackaged
+                  ? join(process.resourcesPath, 'koshirme-app-guard')
+                  : join(app.getAppPath(), 'native/bin/koshirme-app-guard'),
+              ),
             async (apps) => {
               const result = await dialog.showMessageBox(window!, {
                 type: 'warning',
@@ -180,10 +248,12 @@ else {
               });
               return result.response === 1;
             },
-            (error) => guard?.applicationStatus(error),
+            (error) => guard?.applicationStatus(error, true),
           )
         : undefined,
+      () => screenSetup.status(),
     );
+    app.once('before-quit', () => setupLifetime.abort());
     window.on('close', (event) => {
       if (!quitting) {
         event.preventDefault();
@@ -192,6 +262,7 @@ else {
     });
     if (!pairingCode) writeFileSync(pairingPath, guard.state.pairingCode);
     window.on('focus', () => {
+      if (window?.isVisible() && screenSetup.needsCheckAfterGrant()) void checkScreen(false);
       if (guard?.state.monitoring && !guard.state.applicationError) {
         void guard
           .openContest()
@@ -212,10 +283,12 @@ else {
       });
     }
     handle('guard:get-state', () => guard!.state);
-    handle('guard:screen-permission', () => requestScreenPermission());
+    handle('guard:screen-permission', () => checkScreen(true));
+    handle('guard:check-applications', () => checkWindows());
     window.once('ready-to-show', () => {
       window?.show();
-      if (guard?.state.permission !== 'granted') void requestScreenPermission();
+      void checkScreen(false);
+      void checkWindows();
       console.log('KOSH!RME window ready');
     });
     if (process.env.ELECTRON_RENDERER_URL) await window.loadURL(process.env.ELECTRON_RENDERER_URL);

@@ -5,34 +5,36 @@ export function screenPermission(): string {
     ? systemPreferences.getMediaAccessStatus('screen')
     : 'granted';
 }
-export async function requestScreenPermission() {
-  if (process.platform !== 'darwin') return;
-  // Zero-sized thumbnails enumerate sources for the system permission flow. No screenshot is retained.
-  await desktopCapturer
-    .getSources({
-      types: ['screen'],
-      thumbnailSize: { width: 0, height: 0 },
-      fetchWindowIcons: false,
-    })
-    .catch(() => {});
-  if (screenPermission() !== 'granted')
+async function screenSources(width: number, height: number) {
+  const sources = await desktopCapturer.getSources({
+    types: ['screen'],
+    thumbnailSize: { width, height },
+    fetchWindowIcons: false,
+  });
+  if (!sources.length || sources.some((source) => source.thumbnail.isEmpty()))
+    throw new Error('capture_failed');
+  return sources;
+}
+
+export async function probeScreenCapture() {
+  // Exercise Electron's capture path without retaining or uploading an image.
+  await screenSources(64, 36);
+}
+
+export async function openScreenSettings() {
+  if (process.platform === 'darwin')
     await shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
     );
 }
+
 export function screenCount() {
   return screen.getAllDisplays().length;
 }
 
 export async function captureScreens(): Promise<Buffer> {
   if (screenPermission() !== 'granted') throw new Error('permission_denied');
-  const sources = await desktopCapturer.getSources({
-    types: ['screen'],
-    thumbnailSize: { width: 1920, height: 1080 },
-    fetchWindowIcons: false,
-  });
-  if (!sources.length || sources.some((source) => source.thumbnail.isEmpty()))
-    throw new Error('capture_failed');
+  const sources = await screenSources(1920, 1080);
   // Combine all connected monitors, ordered by display ID, into a single bounded JPEG.
   // NativeImage bitmap round-trip uses the same pixel layout on each target OS.
   const images = sources

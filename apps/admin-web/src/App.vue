@@ -163,8 +163,8 @@ async function changePassword() {
 </script>
 <template>
   <Toast position="top-right" />
-  <div class="shell">
-    <aside class="sidebar">
+  <div class="shell" :class="{ embedded }">
+    <aside v-if="!embedded" class="sidebar">
       <RouterLink to="/exams" class="brand"
         ><span class="brand-icon"><i class="pi pi-shield" /></span>KOSH!RME</RouterLink
       >
@@ -215,7 +215,7 @@ async function changePassword() {
       </div>
     </aside>
     <div class="main-shell">
-      <header class="topbar">
+      <header v-if="!embedded" class="topbar">
         <span>{{ t('contestMonitoring') }}</span>
         <select
           :aria-label="t('language')"
@@ -330,3 +330,7 @@ async function changePassword() {
     </form>
   </Dialog>
 </template>
+
+<style scoped>
+.shell.embedded .main-shell { margin-left: 0; width: 100%; }
+</style>

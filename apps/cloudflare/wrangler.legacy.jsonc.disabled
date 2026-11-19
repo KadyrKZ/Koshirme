@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "koshirme",
+  "main": "src/index.ts",
+  "workers_dev": true,
+  "routes": [{ "pattern": "koshirme.stream", "custom_domain": true }],
+  "compatibility_date": "2026-09-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "../admin-web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws/*", "/downloads/*", "/privacy"],
+  },
+  "d1_databases": [
+    { "binding": "FIZMAT_DB", "database_name": "fizmat-contest-db", "database_id": "dd824f3d-277f-474b-805d-cee84f4703a3" },
+    {
+      "binding": "DB",
+      "database_name": "examguard",
+      "database_id": "4c2038a7-bfc1-465e-bf49-236c69153768",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "services": [{ "binding": "FIZMAT", "service": "fizmat-contest" }],
+  "r2_buckets": [
+    { "binding": "SCREENSHOTS", "bucket_name": "examguard-screenshots" },
+    { "binding": "DOWNLOADS", "bucket_name": "examguard-downloads" },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "ExamRoom" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ExamRoom"] }],
+  "limits": { "cpu_ms": 30000 },
+  "observability": { "enabled": true },
+}
