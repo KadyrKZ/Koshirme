@@ -73,6 +73,14 @@ internal static class WindowsAppGuard
     private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -268,10 +276,36 @@ internal static class WindowsAppGuard
         }
     }
 
+    private static void ActivateChrome(Dictionary<int, List<IntPtr>> windows, uint session, Identity owner)
+    {
+        foreach (var entry in windows)
+        {
+            Identity identity;
+            try
+            {
+                if (SessionId(entry.Key, "chrome-session") != session) continue;
+                identity = ReadIdentity(entry.Key, "chrome-identity");
+            }
+            catch (CheckFailure failure)
+            {
+                Report(failure, "warning");
+                continue;
+            }
+            if (identity.Sid != owner.Sid || !SameImage(Path.GetFileName(identity.Path), "chrome.exe")) continue;
+            var window = entry.Value[0];
+            int pid;
+            if (GetWindowThreadProcessId(window, out pid) == 0 || pid != entry.Key) continue;
+            if (window == GetForegroundWindow() && !IsIconic(window)) return;
+            if (IsIconic(window)) ShowWindowAsync(window, 9);
+            if (SetForegroundWindow(window)) return;
+        }
+        throw InvalidIdentity("activate-chrome", 0, "Windows could not activate a Chrome window");
+    }
+
     private static void Run(Request request)
     {
         if (request == null || request.ownerPid <= 0 ||
-            (request.action != "list" && (request.action != "quit" || request.app == null || request.app.pid <= 0)))
+            (request.action != "list" && request.action != "activateChrome" && (request.action != "quit" || request.app == null || request.app.pid <= 0)))
             throw InvalidIdentity("request", 0, "Invalid application check request");
 
         int self;
@@ -287,6 +321,12 @@ internal static class WindowsAppGuard
         }
 
         var windows = ListWindows();
+        if (request.action == "activateChrome")
+        {
+            ActivateChrome(windows, session, owner);
+            Console.WriteLine("true");
+            return;
+        }
         var apps = new Dictionary<int, Candidate>();
         foreach (var pid in windows.Keys)
         {

@@ -4,6 +4,7 @@ const copy = {
     guide: 'Инструкция',
     examLabel: 'КОНТЕСТ',
     noExam: 'Контест не подключён',
+    privacy: 'Конфиденциальность',
     help: 'Откройте свой контест на fizmat.win. Приложение и расширение подключатся автоматически — коды не нужны.',
     desktop: 'Приложение',
     monitoring: 'Мониторинг',
@@ -19,6 +20,7 @@ const copy = {
     guide: 'Нұсқаулық',
     examLabel: 'КОНТЕСТ',
     noExam: 'Контест қосылмаған',
+    privacy: 'Құпиялық',
     help: 'fizmat.win сайтында өз контестіңізді ашыңыз. Қолданба мен кеңейтім автоматты қосылады, код қажет емес.',
     desktop: 'Қолданба',
     monitoring: 'Мониторинг',
@@ -34,6 +36,7 @@ const copy = {
     guide: 'Instructions',
     examLabel: 'CONTEST',
     noExam: 'No contest connected',
+    privacy: 'Privacy',
     help: 'Open your contest on fizmat.win. The app and extension connect automatically. No pairing codes.',
     desktop: 'Desktop app',
     monitoring: 'Monitoring',
@@ -50,6 +53,7 @@ let language: keyof typeof copy = 'ru';
 const el = (id: string) => document.getElementById(id)!;
 async function update() {
   const t = copy[language];
+  el('privacy-link').textContent = t.privacy;
   el('brand-title').textContent = language === 'kz' ? 'Көшірме' : 'KOSH!RME';
   el('guide-link').textContent = t.guide;
   el('exam-label').textContent = t.examLabel;

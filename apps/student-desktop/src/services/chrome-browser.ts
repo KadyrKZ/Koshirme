@@ -4,47 +4,11 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
-// Only window handles/process names are inspected; no history or page titles are read.
-const activateWindows = String.raw`
-$ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @'
-using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-public static class ExamChromeWindow {
-  public delegate bool EnumProc(IntPtr window, IntPtr parameter);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
-  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
-  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
-  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr window, int command);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
-  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
-  public static bool Activate() {
-    IntPtr target = IntPtr.Zero;
-    EnumWindows((window, parameter) => {
-      uint pid;
-      GetWindowThreadProcessId(window, out pid);
-      try {
-        if (IsWindowVisible(window) && Process.GetProcessById((int)pid).ProcessName == "chrome") {
-          target = window;
-          return false;
-        }
-      } catch (Exception) { }
-      return true;
-    }, IntPtr.Zero);
-    if (target == IntPtr.Zero) return false;
-    if (GetForegroundWindow() == target && !IsIconic(target)) return true;
-    if (IsIconic(target)) ShowWindowAsync(target, 9);
-    return SetForegroundWindow(target);
-  }
-}
-'@
-if (-not [ExamChromeWindow]::Activate()) { throw 'Windows could not activate Chrome' }
-`;
-
 export class ChromeBrowser {
-  constructor(private macApplicationPath?: string) {}
+  constructor(
+    private macApplicationPath?: string,
+    private activateWindows?: () => Promise<void>,
+  ) {}
   async activate() {
     if (process.platform === 'darwin') {
       await run(
@@ -53,16 +17,8 @@ export class ChromeBrowser {
         { timeout: 8000 },
       );
     } else if (process.platform === 'win32') {
-      await run(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-EncodedCommand',
-          Buffer.from(activateWindows, 'utf16le').toString('base64'),
-        ],
-        { timeout: 8000, windowsHide: true },
-      );
+      if (!this.activateWindows) throw new Error('Windows Chrome activation is unavailable');
+      await this.activateWindows();
     }
   }
   async open(url: string) {

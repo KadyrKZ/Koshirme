@@ -137,7 +137,7 @@ else {
   void app.whenReady().then(async () => {
     app.setName('KOSH!RME');
     if (process.platform === 'win32') app.setAppLogsPath(join(app.getPath('userData'), 'logs'));
-    if (app.isPackaged) app.setAsDefaultProtocolClient('koshirme');
+    if (app.isPackaged && !process.windowsStore) app.setAsDefaultProtocolClient('koshirme');
     Menu.setApplicationMenu(null);
     session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) =>
       callback(false),
@@ -162,9 +162,6 @@ else {
     const pairingPath = join(app.getPath('userData'), 'pairing-code');
     let pairingCode = existsSync(pairingPath) ? readFileSync(pairingPath, 'utf8').trim() : '';
     if (!/^[A-F0-9]{8}$/.test(pairingCode)) pairingCode = '';
-    const chromeBrowser = new ChromeBrowser(
-      app.isPackaged ? undefined : process.env.KOSHIRME_CHROME_APP_PATH,
-    );
     const screenSetup = new ScreenSetup(screenPermission, probeScreenCapture, (error) => {
       desktopLog({
         stage: 'screen-setup',
@@ -183,6 +180,10 @@ else {
             desktopLog,
           )
         : undefined;
+    const chromeBrowser = new ChromeBrowser(
+      app.isPackaged ? undefined : process.env.KOSHIRME_CHROME_APP_PATH,
+      windowsDriver?.activateChrome,
+    );
     const setupLifetime = new AbortController();
     const checkWindows = async () => {
       if (!windowsDriver || guard?.state.starting || guard?.state.monitoring) return;

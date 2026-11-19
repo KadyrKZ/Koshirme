@@ -9,7 +9,7 @@ export function windowsApplicationDriver(
   ownerPid = process.pid,
   transport?: WindowsGuardTransport,
   log: (entry: Diagnostic) => void = console.error,
-): ApplicationDriver {
+): ApplicationDriver & { activateChrome(): Promise<void> } {
   function report(diagnostic: Diagnostic) {
     log({ component: 'windows-application-check', ownerPid, ...diagnostic });
   }
@@ -61,6 +61,18 @@ export function windowsApplicationDriver(
 
   const pending = new Map<number, RunningApplication>();
   return {
+    async activateChrome() {
+      try {
+        const response = await invoke(
+          { action: 'activateChrome', ownerPid },
+          AbortSignal.timeout(8000),
+        );
+        if (response.trim() !== 'true') throw new Error('Unexpected Chrome activation response');
+      } catch (error) {
+        report({ action: 'activateChrome', stage: 'activate-chrome', ...describe(error) });
+        throw error;
+      }
+    },
     async list(signal) {
       let stage = 'run-helper';
       try {

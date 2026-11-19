@@ -160,3 +160,21 @@ test(
     }
   },
 );
+
+test('Chrome activation uses the same packaged helper and rejects a refused status', async () => {
+  const calls: object[] = [];
+  let response = 'true';
+  const driver = windowsApplicationDriver(
+    'fixture.exe',
+    123,
+    async (payload) => {
+      calls.push(payload);
+      return response;
+    },
+    () => {},
+  );
+  await driver.activateChrome();
+  assert.deepEqual(calls, [{ action: 'activateChrome', ownerPid: 123 }]);
+  response = 'false';
+  await assert.rejects(driver.activateChrome(), /Unexpected Chrome activation response/);
+});

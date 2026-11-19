@@ -14,6 +14,7 @@
     "preview": "node scripts/run-electron-vite.mjs preview",
     "dist:mac": "node scripts/build-macos.mjs",
     "dist:win": "npm run build && electron-builder --win --x64 --publish never",
+    "dist:store": "npm run build && electron-builder --config electron-builder.store.yml --win appx --x64 --publish never && python scripts/verify-store-package.py",
     "pack": "npm run build && electron-builder --dir --publish never"
   },
   "dependencies": {

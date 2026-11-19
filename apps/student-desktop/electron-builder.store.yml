@@ -1,0 +1,22 @@
+extends: ./electron-builder.yml
+directories:
+  output: release/store
+win:
+  forceCodeSigning: false
+  signExecutable: false
+  requestedExecutionLevel: asInvoker
+  target:
+    - target: appx
+      arch: [x64]
+appx:
+  identityName: MaratulyKadyr.KOSHIRME
+  publisher: CN=EA66D633-6C63-45D2-86BE-440D652A6688
+  publisherDisplayName: Maratuly Kadyr
+  applicationId: KOSHIRME
+  displayName: KOSH!RME
+  artifactName: KOSHIRME-${version}-x64-store.appx
+  customManifestPath: store-manifest.xml
+  minVersion: 10.0.19041.0
+  maxVersionTested: 10.0.19041.0
+  addAutoLaunchExtension: false
+  electronUpdaterAware: false
